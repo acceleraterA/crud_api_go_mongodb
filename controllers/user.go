@@ -1,15 +1,25 @@
 package controllers
-import(
+
+import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	models "github.com/acceleraterA/crud_api_go_mongodb/models"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	models "github.com/acceleraterA/crud_api_go_mongodb/models"
 )
+
 // var client *mongo.Client
 var collection *mongo.Collection
+
 // create connection with mongo db
 func init() {
 	loadTheEnv()
@@ -24,43 +34,37 @@ func loadTheEnv() {
 		log.Fatalf("Error loading .env file")
 	}
 }
-fmt.Println("Starting the application...")
-// ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-// //clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
-// client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
-// if err != nil {
-// 	log.Fatal(err)
-// }
-// load .env file
-err := godotenv.Load("../.env")
+func createDBInstance() {
+	fmt.Println("Starting the application...")
+	// load .env file
+	err := godotenv.Load("../.env")
 
-if err != nil {
-	log.Fatalf("Error loading .env file")
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+	serverAPIOptions := options.ServerAPI(options.ServerAPIVersion1)
+	clientOptions := options.Client().
+		ApplyURI(os.Getenv("DB_URI")).
+		SetServerAPIOptions(serverAPIOptions)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Check the connection
+	err = client.Ping(context.TODO(), nil)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Connected to MongoDB!")
+
+	collection = client.Database(os.Getenv("DB_NAME")).Collection(os.Getenv("DB_COLLECTION_NAME"))
+
+	fmt.Println("Collection instance created!")
 }
-serverAPIOptions := options.ServerAPI(options.ServerAPIVersion1)
-clientOptions := options.Client().
-	ApplyURI(os.Getenv("DB_URI")).
-	SetServerAPIOptions(serverAPIOptions)
-ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-defer cancel()
-client, err := mongo.Connect(ctx, clientOptions)
-if err != nil {
-	log.Fatal(err)
-}
-// Check the connection
-err = client.Ping(context.TODO(), nil)
-
-if err != nil {
-	log.Fatal(err)
-}
-
-fmt.Println("Connected to MongoDB!")
-
-
-collection = client.Database(os.Getenv("DB_NAME")).Collection(os.Getenv("DB_COLLECTION_NAME"))
-
-fmt.Println("Collection instance created!")
-
 
 func CreatePersonEndpoint(response http.ResponseWriter, request *http.Request) {
 	//declare the response type json
@@ -79,7 +83,7 @@ func GetPersonEndpoint(response http.ResponseWriter, request *http.Request) {
 	var person models.Person
 	//collection := client.Database("thepolyglotdeveloper").Collection("people")
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	err := collection.FindOne(ctx, Person{ID: id}).Decode(&person)
+	err := collection.FindOne(ctx, models.Person{ID: id}).Decode(&person)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
@@ -89,7 +93,7 @@ func GetPersonEndpoint(response http.ResponseWriter, request *http.Request) {
 }
 func GetPeopleEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
-	var people models.[]Person
+	var people []models.Person
 	//collection := client.Database("thepolyglotdeveloper").Collection("people")
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	cursor, err := collection.Find(ctx, bson.M{})
@@ -100,7 +104,7 @@ func GetPeopleEndpoint(response http.ResponseWriter, request *http.Request) {
 	}
 	defer cursor.Close(ctx)
 	for cursor.Next(ctx) {
-		var person Person
+		var person models.Person
 		cursor.Decode(&person)
 		people = append(people, person)
 	}
