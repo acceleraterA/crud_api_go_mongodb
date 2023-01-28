@@ -9,7 +9,8 @@ import (
 	"os"
 	"time"
 
-	models "github.com/acceleraterA/crud_api_go_mongodb/models"
+	"github.com/acceleraterA/crud_api_go_mongodb/models"
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -28,7 +29,7 @@ func init() {
 
 func loadTheEnv() {
 	// load .env file
-	err := godotenv.Load(".env")
+	err := godotenv.Load()
 
 	if err != nil {
 		log.Fatalf("Error loading .env file")
@@ -36,12 +37,6 @@ func loadTheEnv() {
 }
 func createDBInstance() {
 	fmt.Println("Starting the application...")
-	// load .env file
-	err := godotenv.Load("../.env")
-
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
 	serverAPIOptions := options.ServerAPI(options.ServerAPIVersion1)
 	clientOptions := options.Client().
 		ApplyURI(os.Getenv("DB_URI")).
